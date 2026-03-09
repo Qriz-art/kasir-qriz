@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kasir Cafe Realtime</title>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
+        .card { max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .menu-item { display: flex; justify-content: space-between; margin-bottom: 10px; padding: 10px; border: 1px solid #eee; border-radius: 8px; }
+        .btn { padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-add { background: #0084ff; color: white; }
+        .btn-order { background: #28a745; color: white; width: 100%; margin-top: 20px; font-size: 1.1em; }
+        #notif-layar { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #28a745; color: white; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 1000; }
+        table { width: 100%; border-collapse: collapse; background: white; margin-top: 20px; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th { background: #333; color: white; }
+    </style>
+</head>
+<body>
+
+<div id="pembeli-view" class="card">
+    <h2 style="text-align: center;">☕ CAFE QRIZ</h2>
+    <input type="text" id="nama" placeholder="Atas Nama Siapa?" style="width: 100%; padding: 12px; box-sizing: border-box; margin-bottom: 20px;">
+    
+    <div id="menu-list">
+        <div class="menu-item"><span>Kopi Hitam (10rb)</span> <button class="btn btn-add" onclick="tambah('Kopi Hitam', 10000)">Pilih</button></div>
+        <div class="menu-item"><span>Es Teh (5rb)</span> <button class="btn btn-add" onclick="tambah('Es Teh', 5000)">Pilih</button></div>
+        <div class="menu-item"><span>Kentang Goreng (15rb)</span> <button class="btn btn-add" onclick="tambah('Kentang Goreng', 15000)">Pilih</button></div>
+    </div>
+
+    <div id="ringkasan" style="background: #f9f9f9; padding: 15px; border-radius: 10px; margin-top: 20px;">
+        <strong>Pesanan:</strong>
+        <ul id="list-item"></ul>
+        <p>Total: <strong>Rp <span id="total">0</span></strong></p>
+        <select id="metode" style="width: 100%; padding: 10px;">
+            <option>QRIS</option>
+            <option>Tunai di Kasir</option>
+        </select>
+        <button class="btn btn-order" onclick="kirimKeFirebase()">SELESAIKAN PEMBAYARAN</button>
+    </div>
+</div>
+
+<div id="notif-layar">
+    <h1 style="font-size: 3em;">✅ TERIMAKASIH!</h1>
+    <p style="font-size: 1.5em;">Pesanan <strong id="nama-notif"></strong> diterima.</p>
+    <p>Mohon ditunggu pesanannya ya!</p>
+    <button onclick="location.reload()" style="padding:10px; margin-top:20px;">Pesan Lagi</button>
+</div>
+
+<div id="kasir-view" style="margin-top: 50px; padding: 20px;">
+    <h2>🖥️ MONITOR KASIR</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Waktu</th>
+                <th>Nama</th>
+                <th>Pesanan</th>
+                <th>Bayar</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody id="tabel-pesanan"></tbody>
+    </table>
+</div>
+
+<script>
+    // MASUKKAN CONFIG PUNYAMU DI SINI
+    const firebaseConfig = {
+        apiKey: "AIzaSyCNd4CijB_3oo4QsRKS2uwzcISb4ne45xY",
+        authDomain: "kasir-qriz.firebaseapp.com",
+        projectId: "kasir-qriz",
+        storageBucket: "kasir-qriz.firebasestorage.app",
+        messagingSenderId: "510494961627",
+        appId: "1:510494961627:web:0ff68585a0ae2248d281fe",
+        // PENTING: Tambahkan databaseURL jika belum ada
+        databaseURL: "https://kasir-qriz-default-rtdb.asia-southeast1.firebasedatabase.app/" 
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    let keranjang = [];
+    let totalHarga = 0;
+
+    function tambah(nama, harga) {
+        keranjang.push(nama);
+        totalHarga += harga;
+        document.getElementById('list-item').innerHTML += `<li>${nama}</li>`;
+        document.getElementById('total').innerText = totalHarga.toLocaleString('id-ID');
+    }
+
+    function kirimKeFirebase() {
+        const nama = document.getElementById('nama').value;
+        const metode = document.getElementById('metode').value;
+        if(!nama || keranjang.length === 0) return alert("Isi nama dan pilih menu!");
+
+        const waktu = new Date().toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
+
+        database.ref('orders/').push({
+            pelanggan: nama,
+            item: keranjang.join(", "),
+            metode: metode,
+            waktu: waktu
+        }).then(() => {
+            document.getElementById('nama-notif').innerText = nama;
+            document.getElementById('notif-layar').style.display = 'flex';
+        });
+    }
+
+    database.ref('orders/').on('value', (snapshot) => {
+        const data = snapshot.val();
+        const tbody = document.getElementById('tabel-pesanan');
+        tbody.innerHTML = "";
+        for (let id in data) {
+            tbody.innerHTML += `<tr>
+                <td>${data[id].waktu}</td>
+                <td><b>${data[id].pelanggan}</b></td>
+                <td>${data[id].item}</td>
+                <td>${data[id].metode}</td>
+                <td><button onclick="selesai('${id}')" style="background:red; color:white; border:none; padding:5px; border-radius:5px;">Selesai</button></td>
+            </tr>`;
+        }
+    });
+
+    function selesai(id) {
+        database.ref('orders/' + id).remove();
+    }
+</script>
+</body>
+</html>
