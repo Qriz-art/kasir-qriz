@@ -3,142 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Qrizhop - Dengan Riwayat</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>KASIR - QRIZHOP</title>
     <style>
-        :root {
-            --primary: #4f46e5;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --bg: #f3f4f6;
-            --text: #1f2937;
-        }
-
-        * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background-color: var(--bg); color: var(--text); margin: 0; }
-
-        /* --- LAYOUT --- */
-        #login-page { display: flex; justify-content: center; align-items: center; height: 100vh; background: var(--primary); }
-        #admin-page { display: none; padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
-
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-        
-        /* --- TABS --- */
-        .tab-container { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
-        .tab-btn { padding: 10px 20px; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; border-radius: 8px; }
-        .tab-btn.active { background: var(--primary); color: white; }
-
-        /* --- CARDS --- */
-        .order-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem; }
-        .order-card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-top: 6px solid var(--warning); position: relative; }
-        .order-card.diproses { border-top-color: var(--primary); }
-        .order-card.selesai { border-top-color: var(--success); opacity: 0.9; }
-
-        .item-list { border-top: 1px solid #eee; margin: 15px 0; padding: 10px 0; list-style: none; font-size: 0.9rem; }
-        .item-list li { display: flex; justify-content: space-between; margin-bottom: 5px; }
-
-        .total-price { font-size: 1.1rem; font-weight: bold; color: var(--primary); display: block; margin-bottom: 15px; }
-
-        /* --- BUTTONS --- */
-        .actions { display: flex; gap: 8px; }
-        .btn { flex: 1; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; color: white; transition: 0.2s; }
-        .btn-p { background: var(--primary); }
-        .btn-s { background: var(--success); }
-        .btn:hover { opacity: 0.8; }
-        
-        .login-card { background: white; padding: 2rem; border-radius: 1rem; text-align: center; width: 320px; }
-        input { width: 100%; padding: 10px; margin: 15px 0; border: 1px solid #ddd; border-radius: 6px; }
-
-        .empty-state { grid-column: 1/-1; text-align: center; padding: 50px; color: #9ca3af; }
+        body { font-family: sans-serif; background: #f4f4f4; padding: 20px; }
+        h1 { color: #d32f2f; text-align: center; }
+        .order-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .order-card { background: white; padding: 15px; border-radius: 10px; shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 5px solid #d32f2f; }
+        .order-header { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
+        .status-badge { background: #ff9800; color: white; padding: 2px 8px; border-radius: 5px; font-size: 0.8rem; }
+        .item-list { font-size: 0.9rem; color: #555; }
+        .btn-done { background: #25d366; color: white; border: none; padding: 10px; width: 100%; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="login-page">
-        <div class="login-card">
-            <h2>🔑 Admin Login</h2>
-            <input type="password" id="passInput" placeholder="Password: admin123">
-            <button onclick="handleLogin()" class="btn btn-p" style="width:100%">Masuk</button>
-        </div>
-    </div>
-
-    <div id="admin-page">
-        <header>
-            <h1>Qrizhop Kasir</h1>
-            <button onclick="location.reload()" class="btn btn-p" style="max-width: 100px; background: #666;">Keluar</button>
-        </header>
-
-        <div class="tab-container">
-            <button class="tab-btn active" id="tab-aktif" onclick="switchTab('aktif')">Antrean Aktif (<span id="count-aktif">0</span>)</button>
-            <button class="tab-btn" id="tab-riwayat" onclick="switchTab('riwayat')">Riwayat Selesai (<span id="count-riwayat">0</span>)</button>
+    <h1>Panel Kasir QRIZHOP</h1>
+    <div class="order-grid" id="order-container">
         </div>
 
-        <div id="orderContainer" class="order-grid">
-            </div>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        <button onclick="tambahPesananSimulasi()" style="position:fixed; bottom:20px; right:20px; padding:12px 20px; border-radius:50px; border:none; background:#1f2937; color:white; cursor:pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
-            + Simulasi Pesanan Baru
-        </button>
-    </div>
+    // PAKAI URL YANG SAMA DENGAN WEB 1
+    const firebaseConfig = {
+        databaseURL: "https://qrizhop-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    };
 
-   <script>
-    // 1. Deklarasi URL dan Variabel (Taruh paling atas di dalam script)
-    const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbyL17KYY-wekwFacISsQ3szEOGjh180jaHNs-W_x75esZj482RUE7SPeno22-Cd3G_s/exec";
-    let dataAktif = [];
-    let dataRiwayat = [];
-    let currentTab = 'aktif';
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-    // 2. Fungsi Login (Tetap sama)
-    function handleLogin() {
-        if(document.getElementById('passInput').value === "admin123") {
-            document.getElementById('login-page').style.display = 'none';
-            document.getElementById('admin-page').style.display = 'block';
-            muatDataDariSheet(); // Panggil fungsi ambil data sheet saat login sukses
-        } else { alert("Salah!"); }
-    }
+    const orderContainer = document.getElementById('order-container');
 
-    // 3. GANTI/MASUKKAN FUNGSI INI (Fungsi utama ambil data)
-    async function muatDataDariSheet() {
-        try {
-            const response = await fetch(URL_SCRIPT);
-            const dataRaw = await response.json();
-            
-            // Filter data dari sheet: baris yang statusnya bukan 'Selesai' masuk ke Aktif
-            dataAktif = dataRaw.filter(row => row[4] !== "Selesai").map(row => ({
-                id: row[0],
-                pembeli: row[1],
-                items: [{ nama: row[2], qty: "" }],
-                total: row[3],
-                status: row[4],
-                waktu: new Date(row[5]).toLocaleTimeString('id-ID')
-            }));
+    // MENDENGARKAN DATA DARI FIREBASE SECARA REAL-TIME
+    const ordersRef = ref(db, 'pesanan');
+    onValue(ordersRef, (snapshot) => {
+        orderContainer.innerHTML = ""; // Bersihkan tampilan lama
+        const data = snapshot.val();
+        
+        if (data) {
+            Object.keys(data).forEach(id => {
+                const order = data[id];
+                
+                // Susun daftar item makanan/minuman
+                let itemsText = "";
+                for (let prod in order.items) {
+                    itemsText += `<li>${prod} (x${order.items[prod].qty})</li>`;
+                }
 
-            // Filter data dari sheet: baris yang statusnya 'Selesai' masuk ke Riwayat
-            dataRiwayat = dataRaw.filter(row => row[4] === "Selesai").map(row => ({
-                id: row[0],
-                pembeli: row[1],
-                items: [{ nama: row[2], qty: "" }],
-                total: row[3],
-                status: row[4],
-                waktu: new Date(row[5]).toLocaleTimeString('id-ID')
-            }));
+                // Buat kartu pesanan
+                const card = document.createElement('div');
+                card.className = "order-card";
+                card.innerHTML = `
+                    <div class="order-header">
+                        <strong>${order.pembeli}</strong>
+                        <span class="status-badge">${order.metode.toUpperCase()}</span>
+                    </div>
+                    <ul class="item-list">${itemsText}</ul>
+                    <p><strong>Total: Rp ${order.total.toLocaleString()}</strong></p>
+                    <small style="color: #999;">${order.waktu}</small>
+                    <button class="btn-done" onclick="selesaikanPesanan('${id}')">Selesai / Hapus</button>
+                `;
+                orderContainer.appendChild(card);
+            });
+        } else {
+            orderContainer.innerHTML = "<p style='text-align:center; width:100%;'>Belum ada pesanan masuk.</p>";
+        }
+    });
 
-            render();
-        } catch (err) {
-            console.error("Gagal ambil data:", err);
+    // FUNGSI UNTUK MENGHAPUS PESANAN JIKA SUDAH SELESAI
+    window.selesaikanPesanan = function(id) {
+        if(confirm("Pesanan selesai dan akan dihapus dari daftar?")) {
+            remove(ref(db, 'pesanan/' + id));
         }
     }
-
-    // 4. Jalankan otomatis setiap 10 detik agar update terus
-    setInterval(() => {
-        if (document.getElementById('admin-page').style.display === 'block') {
-            muatDataDariSheet();
-        }
-    }, 10000);
-
-    // ... (Sisa fungsi render(), switchTab(), dll tetap di bawahnya) ...
 </script>
-    
 </body>
 </html>
